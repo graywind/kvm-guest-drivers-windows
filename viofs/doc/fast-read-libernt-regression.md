@@ -191,21 +191,40 @@ Alternatives considered:
 
 Validation so far: the 0.1.285 heap pair reads both files on the same VM.
 
-### Build status
+### Build status and end-to-end validation
 
-The branch was cross-built on Linux with MinGW-w64 (x86_64, C++20). Compilation
-and linking succeed. The resulting executable starts and sends `FUSE_INIT`
-(`VirtFsFuseRequest >>req: 26`), but the virtio-fs service fails to start with
-`STATUS_NOT_IMPLEMENTED` (c0000002) before any read. The cross-built exe imports
-the UCRT API sets and `libwinpthread-1.dll`, unlike the vendor's static-CRT MSVC
-build, so this is a toolchain/runtime incompatibility of the cross-build, not
-the Read change. An MSVC build is required for an end-to-end runtime test; the
-0.1.285 MSVC heap pair on the same VM is the behavioural validation.
+The patched `virtiofs.exe` was built for the MSVC ABI with `clang-cl` against
+the MSVC CRT/SDK (xwin), `/MT` static CRT, `/std:c++20`, linking the vendor
+`winfsp_x64.lib`. The resulting PE imports only KERNEL32, ADVAPI32, CFGMGR32,
+SETUPAPI, SHELL32 and `winfsp-x64.dll` - the same set as the vendor build, with
+no UCRT API-set or MinGW runtime imports.
 
-Build-only adaptations, not part of the PR: `-DUNICODE/-D_UNICODE`, C++20,
-`SCOPE_EXIT` with `##__VA_ARGS__`, a `Min` template, a `<Windows.h>` case shim,
-a `REPARSE_DATA_BUFFER` shim, `#undef _ReadWriteBarrier` in the WinFsp header,
-and static libstdc++/libgcc.
+Test on the same LiberNT VM:
+
+- the signed virtio-win **0.1.302** package for w10/amd64 (`viofs.sys` 63,128
+  bytes, matching catalog) was installed with `pnputil` and the active
+  `VirtioFsDrv` image was confirmed as 63,128 bytes after a restart;
+- `c:\viofs\virtiofs-patched-msvc.exe -t vmshare -m Z:` reports
+  "The service VirtIO-FS has been started.";
+- `dir Z:` enumerates `guestfile.txt` (21), `hostfile.txt` (26) and
+  `large.bin` (4096);
+- `type Z:\hostfile.txt` returns the 26-byte content;
+- `copy Z:\large.bin` succeeds and produces a 4,096-byte file.
+
+No FASTFAIL and no wedged read occurred.
+
+An earlier MinGW-w64 cross-build also failed at service start with
+`STATUS_NOT_IMPLEMENTED` (c0000002). That was not a toolchain defect: the same
+failure occurs with the MSVC build while the **0.1.285** driver is active,
+because a 0.1.302 exe cannot start against the older driver image. After the
+0.1.302 driver was installed, the MSVC build mounts and reads normally. The
+MinGW build was not retested after the driver swap; the validated artifact is
+the MSVC build above.
+
+Build-only adaptations for the MinGW attempt, not part of the PR: `-DUNICODE`,
+C++20, `SCOPE_EXIT` with `##__VA_ARGS__`, a `Min` template, a `<Windows.h>` case
+shim, a `REPARSE_DATA_BUFFER` shim, `#undef _ReadWriteBarrier` in the WinFsp
+header, and static libstdc++/libgcc. The MSVC build needed none of these.
 
 
 ## What would overturn this conclusion
