@@ -209,7 +209,11 @@ Test on the same LiberNT VM:
 - `dir Z:` enumerates `guestfile.txt` (21), `hostfile.txt` (26) and
   `large.bin` (4096);
 - `type Z:\hostfile.txt` returns the 26-byte content;
-- `copy Z:\large.bin` succeeds and produces a 4,096-byte file.
+- `copy Z:\large.bin` succeeds and produces a 4,096-byte file;
+- `comp Z:\large.bin C:\large-msvc.bin` reports "Files compare OK", and
+  `certutil -hashfile C:\large-msvc.bin SHA256` returns
+  `9ad4c1f2e6381f353cdd8856527000cb312741d9041b928e5b88eaca41c9c009`, the same
+  hash as the host file, so the 4 KiB read is byte-accurate.
 
 No FASTFAIL and no wedged read occurred.
 
