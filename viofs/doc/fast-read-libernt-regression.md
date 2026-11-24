@@ -189,8 +189,24 @@ Alternatives considered:
   old viofs layout is compatible with the buffer.
 - Gate or disable the fast IOCTL at runtime: does not address the stack overlap.
 
-Validation so far: the 0.1.285 heap pair reads both files on the same VM; a
-rebuilt 0.1.302+patch executable is the next validation step.
+Validation so far: the 0.1.285 heap pair reads both files on the same VM.
+
+### Build status
+
+The branch was cross-built on Linux with MinGW-w64 (x86_64, C++20). Compilation
+and linking succeed. The resulting executable starts and sends `FUSE_INIT`
+(`VirtFsFuseRequest >>req: 26`), but the virtio-fs service fails to start with
+`STATUS_NOT_IMPLEMENTED` (c0000002) before any read. The cross-built exe imports
+the UCRT API sets and `libwinpthread-1.dll`, unlike the vendor's static-CRT MSVC
+build, so this is a toolchain/runtime incompatibility of the cross-build, not
+the Read change. An MSVC build is required for an end-to-end runtime test; the
+0.1.285 MSVC heap pair on the same VM is the behavioural validation.
+
+Build-only adaptations, not part of the PR: `-DUNICODE/-D_UNICODE`, C++20,
+`SCOPE_EXIT` with `##__VA_ARGS__`, a `Min` template, a `<Windows.h>` case shim,
+a `REPARSE_DATA_BUFFER` shim, `#undef _ReadWriteBarrier` in the WinFsp header,
+and static libstdc++/libgcc.
+
 
 ## What would overturn this conclusion
 
